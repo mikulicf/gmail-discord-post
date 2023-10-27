@@ -1,4 +1,9 @@
-.env
+config.yaml
 node_modules/
 *credentials.json
 token.json
+*secret*
+*-*-*-*.json
+old
+creds*
+node

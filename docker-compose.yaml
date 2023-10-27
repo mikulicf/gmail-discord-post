@@ -1,0 +1,7 @@
+version: '3'
+services:
+  app:
+    build: .
+    environment:
+      - VAR1=${VAR1}
+      - VAR2=${VAR2}
