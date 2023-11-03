@@ -33,6 +33,7 @@ func (gm *Gmail) FetchHistoryIds(svc *gmail.Service) ([]string, error) {
 func GetMessageData(msg *gmail.Message) (DecodedMessage, error) {
 	var decodedMessage DecodedMessage
 	var rawDecodedText []byte
+
 	for _, part := range msg.Payload.Parts {
 		if part.MimeType == "text/plain" {
 			// BASE64 URL!!!!!!!!!!!!!!!!!!!!!!! encoded -.-
@@ -54,6 +55,10 @@ func GetMessageData(msg *gmail.Message) (DecodedMessage, error) {
 			}
 		}
 	}
-	decodedMessage.Body = string(rawDecodedText)
+	if rawDecodedText != nil {
+		decodedMessage.Body = string(rawDecodedText)
+	} else {
+		decodedMessage.Body = msg.Snippet
+	}
 	return decodedMessage, nil
 }

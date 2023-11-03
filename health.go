@@ -22,7 +22,7 @@ func healthHandlerFactory(gm *mail.Gmail) http.HandlerFunc {
 }
 
 func checkHealth(gm *mail.Gmail, httpPort string) {
-	resp, err := http.Get("http://localhost:" + httpPort + "/health")
+	resp, err := http.Get("http://localhost:" + httpPort + "/health/" + gm.ProjectID)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		log.Printf("Status: %s\n", resp.Status)
 		gm.ReRegisterWatch()

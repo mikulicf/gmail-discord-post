@@ -6,6 +6,7 @@ const GMAIL_LABEL = "INBOX"
 const GMAIL_USERID = "me"
 
 type Gmail struct {
+	InboxAdress            string
 	LastHistoryId          uint64
 	ProcessedMessages      []string
 	CredentialsPath        string

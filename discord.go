@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -10,8 +11,8 @@ type DiscordWebhook struct {
 	Content string `json:"content"`
 }
 
-func postToDiscord(webhook string, message string) error {
-	webhookBody := &DiscordWebhook{Content: message}
+func postToDiscord(webhook string, subject string, body string) error {
+	webhookBody := &DiscordWebhook{Content: fmt.Sprintf("%s\n%s", subject, body)}
 	jsonData, err := json.Marshal(webhookBody)
 	if err != nil {
 		return err

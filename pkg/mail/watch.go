@@ -31,7 +31,9 @@ func (gm *Gmail) WatchInbox(gmailService *gmail.Service) {
 		log.Fatalf("Unable to get profile: %v", err)
 	}
 
-	fmt.Printf("Watch created on inbox %s, historyId: %d\n", profile.EmailAddress, watchResponse.HistoryId)
+	gm.InboxAdress = profile.EmailAddress
+
+	fmt.Printf("Watch created on inbox %s, historyId: %d\n", gm.InboxAdress, watchResponse.HistoryId)
 
 	gm.LastHistoryId = watchResponse.HistoryId
 

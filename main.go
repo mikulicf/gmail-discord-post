@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -96,14 +97,14 @@ func main() {
 
 			svc, err := newGmail.CreateGmailService()
 			if err != nil {
-				log.Fatal(err)
+				log.Printf("Failed creating service for project %s\n%s", proj.ProjectID, err)
 			}
 
 			newGmail.WatchInbox(svc)
 
 			// Set up HTTP server
-			http.HandleFunc("/notifications", notificationsHandlerFactory(svc, &newGmail, proj))
-			http.HandleFunc("/health", healthHandlerFactory(&newGmail))
+			http.HandleFunc("/notifications/"+proj.ProjectID, notificationsHandlerFactory(svc, &newGmail, proj))
+			http.HandleFunc("/health/"+proj.ProjectID, healthHandlerFactory(&newGmail))
 			go http.ListenAndServe(":"+proj.HttpPort, nil)
 			go http.ListenAndServeTLS(":"+proj.HttpsPort, proj.HttpsCertPath, proj.HttpsKeyPath, nil)
 
@@ -173,7 +174,7 @@ func authenticateRequest(w http.ResponseWriter, r *http.Request, proj Project) e
 	if err != nil {
 		return err
 	}
-	payload, err := v.Validate(r.Context(), token, "https://"+proj.TokenDomain+":"+proj.ExternalHttpsPort+"/notifications")
+	payload, err := v.Validate(r.Context(), token, "https://"+proj.TokenDomain+":"+proj.ExternalHttpsPort+"/notifications/"+proj.ProjectID)
 	if err != nil {
 		return err
 	}
@@ -258,13 +259,83 @@ func notificationsHandlerFactory(gmailService *gmail.Service, newGmail *mail.Gma
 					continue
 				}
 
-				err = postToDiscord(proj.DiscordWebhookUrl, decodedMessage.Body)
-				if err != nil {
-					log.Printf("Failed posting message to discord Message ID: %s\nError: %s", msg.Id, err)
-					continue
-				}
+				log.Println(decodedMessage.Body)
 
-				log.Printf("Posted to discord: %s\n", msg.Id)
+				log.Printf("Processing mail %s on inbox %s", messageId, newGmail.InboxAdress)
+
+				if strings.Contains(strings.ToLower(decodedMessage.Body), "steam") && strings.Contains(strings.ToLower(decodedMessage.Body), "code") {
+					steamUsernameRegex1 := regexp.MustCompile(`(?:.*?)*?(\b\w*?\b),`)
+					steamCodeRegex1 := regexp.MustCompile(`(?m)Request made from(?:.*?)*?(?:.*?\n)*?([A-Z0-9]{5})`)
+
+					// Try matching Steam username and code with first regex pattern
+					steamUsernameMatch := steamUsernameRegex1.FindStringSubmatch(decodedMessage.Body)
+					steamCodeMatch := steamCodeRegex1.FindStringSubmatch(decodedMessage.Body)
+
+					if steamUsernameMatch != nil && steamCodeMatch != nil {
+						subject := "Steam: " + steamUsernameMatch[1]
+						body := "Code: " + steamCodeMatch[1]
+						err = postToDiscord(proj.DiscordWebhookUrl, subject, body)
+						if err != nil {
+							log.Printf("Failed posting message to discord Message ID: %s\nError: %s", msg.Id, err)
+							continue
+						}
+					} else {
+						log.Println("Unable to find steam regexp match.")
+					}
+
+				} else if strings.Contains(strings.ToLower(decodedMessage.Body), "epic") && strings.Contains(strings.ToLower(decodedMessage.Body), "code") {
+
+					epicCodeRegex := regexp.MustCompile(`code (\d+)`)
+					epicCodeMatch := epicCodeRegex.FindStringSubmatch(decodedMessage.Body)
+					if epicCodeMatch != nil {
+						subject := "Epic: " + decodedMessage.To
+						body := "Code: " + epicCodeMatch[1]
+						err = postToDiscord(proj.DiscordWebhookUrl, subject, body)
+						if err != nil {
+							log.Printf("Failed posting message to discord Message ID: %s\nError: %s", msg.Id, err)
+							continue
+						}
+
+					} else {
+						log.Println("Unable to find epic regexp match.")
+					}
+
+				} else if strings.Contains(strings.ToLower(decodedMessage.Body), "battle.net") && strings.Contains(strings.ToLower(decodedMessage.Body), "code") {
+
+					battleAccountNameRegex := regexp.MustCompile(`If (.*?) isn&#39;t your account name,`)
+					battleCodeRegex := regexp.MustCompile(`code: (\w+)`)
+
+					battleAccountNameMatch := battleAccountNameRegex.FindStringSubmatch(decodedMessage.Body)
+					battleCodeMatch := battleCodeRegex.FindStringSubmatch(decodedMessage.Body)
+
+					if battleAccountNameMatch != nil && battleCodeMatch != nil {
+						subject := "Battle.net: " + battleAccountNameMatch[1]
+						body := "Code: " + battleCodeMatch[1]
+						err = postToDiscord(proj.DiscordWebhookUrl, subject, body)
+						if err != nil {
+							log.Printf("Failed posting message to discord Message ID: %s\nError: %s", msg.Id, err)
+							continue
+						}
+					} else {
+						log.Println("Unable to find battle.net regexp match.")
+					}
+
+				} else if strings.Contains(strings.ToLower(decodedMessage.From), "rockstar") && strings.Contains(strings.ToLower(decodedMessage.Body), "code") {
+					rockstarCodeRegex := regexp.MustCompile(`\b(\d{6})\b`)
+					rockstarCodeMatch := rockstarCodeRegex.FindStringSubmatch(decodedMessage.Body)
+
+					if rockstarCodeMatch != nil {
+						subject := "Rockstar: " + decodedMessage.To
+						body := "Code: " + rockstarCodeMatch[1]
+						err = postToDiscord(proj.DiscordWebhookUrl, subject, body)
+						if err != nil {
+							log.Printf("Failed posting message to discord Message ID: %s\nError: %s", msg.Id, err)
+							continue
+						}
+					} else {
+						log.Println("Unable to rockstar find regexp match.")
+					}
+				}
 
 				newGmail.ProcessedMessages = append(newGmail.ProcessedMessages, messageId)
 				newGmail.LastHistoryId = msg.HistoryId
